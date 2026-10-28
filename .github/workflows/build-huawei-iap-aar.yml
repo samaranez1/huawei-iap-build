@@ -1,0 +1,42 @@
+name: Build HuaweiIAP AAR
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android.zip'
+      - '.github/workflows/build-huawei-iap-aar.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Unpack plugin source
+        run: unzip -o android.zip
+
+      - name: Show files
+        run: ls -R android | head -40
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.9'
+
+      - name: Build release AAR
+        working-directory: android/huawei-iap-plugin
+        run: gradle :huawei-iap:assembleRelease --stacktrace
+
+      - name: Upload AAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HuaweiIAP-aar
+          path: android/huawei-iap-plugin/huawei-iap/build/outputs/aar/*.aar
