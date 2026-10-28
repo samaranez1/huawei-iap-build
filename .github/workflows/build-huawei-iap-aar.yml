@@ -8,7 +8,8 @@
 # Usage: push, then Actions tab > "Build HuaweiIAP AAR" > Run workflow
 # (it also runs automatically when the plugin sources change).                                      # Download the "HuaweiIAP-aar" artifact, rename the file to HuaweiIAP.aar,
 # and place it in <project>/android/plugins/ next to HuaweiIAP.gdap.
-
+-name: Unpack plugin source
+run: unzip -o android.zip
 name: Build HuaweiIAP AAR
 
 on:
