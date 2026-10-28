@@ -1,0 +1,90 @@
+# Builds the HuaweiIAP plugin AAR in the cloud - no PC / Android Studio needed.
+#
+# HOW TO UPLOAD (phone-friendly):
+#   1. On github.com, open your repo and tap into .github/workflows/
+#   2. "Add file" > "Upload files" > select THIS file > Commit.
+#      It replaces the old build-huawei-iap-aar.yml and a new build
+#      starts automatically.
+# You can delete this root-level copy after uploading; the real one lives
+# in .github/workflows/ (also saved in this project).
+#
+# REPO LAYOUT (pick one):
+#   A) Normal git layout: repo root directly contains android/ and .github/
+#   B) Phone upload: repo root contains android.zip (a zip of the `android`
+#      folder OR of the whole new-game-project folder) plus .github/
+# This workflow handles both: if android.zip exists it is unpacked and the
+# plugin folder is located automatically.
+#
+# After the run turns green: Actions > the run > Artifacts > download
+# "HuaweiIAP-aar", rename the file to HuaweiIAP.aar, and place it in
+# <project>/android/plugins/ next to HuaweiIAP.gdap.
+
+name: Build HuaweiIAP AAR
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/huawei-iap-plugin/**'
+      - 'android.zip'
+      - '.github/workflows/build-huawei-iap-aar.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Unpack plugin source (zip layout)
+        run: |
+          if [ -f android.zip ]; then
+            unzip -o android.zip
+          else
+            echo "No android.zip, using repo files directly."
+          fi
+          echo "--- repo top level ---"
+          ls -la
+
+      - name: Normalize plugin location
+        run: |
+          if [ ! -d android/huawei-iap-plugin ]; then
+            FOUND=$(find . -maxdepth 4 -type d -name "huawei-iap-plugin" | head -n 1)
+            if [ -z "$FOUND" ]; then
+              echo "ERROR: huawei-iap-plugin not found. The zip must contain the android/ folder."
+              exit 1
+            fi
+            echo "Found plugin at $FOUND, moving to android/huawei-iap-plugin"
+            mkdir -p android
+            mv "$FOUND" android/huawei-iap-plugin
+          fi
+          ls android/huawei-iap-plugin
+
+      - name: Set toolchain versions (AGP 8.7.3 / Kotlin 2.1.20)
+        run: |
+          F=android/huawei-iap-plugin/build.gradle
+          sed -i "s/id 'com.android.library' version '[^']*'/id 'com.android.library' version '8.7.3'/" "$F"
+          sed -i "s/id 'org.jetbrains.kotlin.android' version '[^']*'/id 'org.jetbrains.kotlin.android' version '2.1.20'/" "$F"
+          cat "$F"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.9
+
+      - name: Build release AAR
+        working-directory: android/huawei-iap-plugin
+        run: gradle :huawei-iap:assembleRelease --stacktrace
+
+      - name: Upload AAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HuaweiIAP-aar
+          path: android/huawei-iap-plugin/huawei-iap/build/outputs/aar/huawei-iap-release.aar
+          if-no-files-found: error
